@@ -1,7 +1,8 @@
 # Module name:  ProjectMerger.py
-# Description:  A "simple" python script that allows users to merge together multiple programming block files (.v5blocks) into one
+# Description:  A "simple" python script that allows users to merge together multiple programming block files (.v5blocks or .iqblocks) into one
 # Created by:   Caleb Carlson
-# Date:         7/5/2023
+# Date:         7/4/2023
+# Terms of use: Just make sure to give me (Caleb Carlson) credit for this specific file if you use it (this file)
 
 
 import os
@@ -11,8 +12,10 @@ import shutil
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-ET.register_namespace('', "http://www.w3.org/1999/xhtml")
 
+ET.register_namespace('', "http://www.w3.org/1999/xhtml")
+platform_detected = False
+platform = None
 
 # We frequently need to get the ID of a block
 def get_block_id(element: ET.Element) -> str:
@@ -22,18 +25,26 @@ def get_block_id(element: ET.Element) -> str:
 # Function to get project files from folder
 def get_project_files(local_directory: str, console_output: bool = True) -> list[str]:
 
+    global platform, platform_detected
+
     file_paths = []
 
     if console_output:
         print("\nFinding project files... \n")
 
-    # Search the given folder for any .v5blocks files (will also search in subfolders; organizing a project with folders is okay)
+    # Search the given folder for any .v5blocks or .iqblocks files (will also search in subfolders; organizing a project with folders is okay)
     for root, dirs, files in os.walk(local_directory):
             for file in files:
-                if file.endswith(".v5blocks"):
-                    file_paths.append(os.path.join(root, file))
-                    if console_output:
-                        print("Found file at path:              {}".format(file_paths[-1]))
+                extension = os.path.splitext(file)[-1]
+                if extension == ".v5blocks" or extension == ".iqblocks":
+                    if not platform_detected:
+                        platform_detected = True
+                        platform = extension
+                    if extension == platform:
+                        file_paths.append(os.path.join(root, file))
+                        if console_output:
+                            print("Found file at path:              {}".format(file_paths[-1]))
+
     
     if console_output:
         print("")
@@ -41,8 +52,8 @@ def get_project_files(local_directory: str, console_output: bool = True) -> list
     return file_paths
 
 
-# Function to get appropriate xml data from a .v5blocks file
-def get_xml_data_from_v5blocks_file(local_file_path: str) ->str:
+# Function to get appropriate xml data from a .v5blocks or .iqblocks file
+def get_xml_data_from_file(local_file_path: str) ->str:
     
     print("Retrieving XML-str data from:    {}".format(local_file_path))
 
@@ -53,8 +64,8 @@ def get_xml_data_from_v5blocks_file(local_file_path: str) ->str:
     # Retrieve and then return a string representing the XML data contained within the JSON under the key "workspace"
     return json_content['workspace']
 
-# Function to replace appropriate xml data from a .v5blocks file
-def replace_xml_data_in_v5blocks_file(local_file_path: str, content_to_replace_with: str) -> dict:
+# Function to replace appropriate xml data from a .v5blocks or .iqblocks file
+def replace_xml_data_in_file(local_file_path: str, content_to_replace_with: str) -> dict:
     
     
     print("\nReplacing XML-block data in:     {}\n".format(local_file_path))
@@ -68,8 +79,8 @@ def replace_xml_data_in_v5blocks_file(local_file_path: str, content_to_replace_w
     return json_content
 
 
-# Function to get appropriate element xml data from a .v5blocks file
-def get_xml_element_data_from_v5blocks_file(local_file_path: str) ->ET.Element:
+# Function to get appropriate element xml data from a .v5blocks or .iqblocks file
+def get_xml_element_data_from_file(local_file_path: str) ->ET.Element:
 
     print("Retrieving ET.Element data from: {}".format(local_file_path))
 
@@ -111,13 +122,13 @@ def get_block_elements_from_projects(project_folder_path: str) -> list[ET.Elemen
 
     print("\n###########################################\n# Retrieving blocks from project files    #\n###########################################")
 
-    # Retrieve list of .v5blocks files within project folder
+    # Retrieve list of .v5blocks or .iqblocks files within project folder
     project_files = get_project_files(project_folder_path)
 
     # Retrieve the workspace XML data stored in each project file
     raw_xml_project_data = []
     for project_file in project_files:
-        raw_xml_project_data.append((get_xml_data_from_v5blocks_file(project_file), project_file))
+        raw_xml_project_data.append((get_xml_data_from_file(project_file), project_file))
 
     print("")
 
@@ -149,7 +160,7 @@ def append_xml_block_elements_to_merge_project(merge_project_file_path: str, blo
     print("###########################################\n# Appending retrieved blocks to main file #\n###########################################\n")
 
     # Retrieve the XML Tree structure from the destination project file
-    tree = get_xml_element_data_from_v5blocks_file(merge_project_file_path)
+    tree = get_xml_element_data_from_file(merge_project_file_path)
     root = tree.getroot()
 
     print("")
@@ -168,11 +179,11 @@ def append_xml_block_elements_to_merge_project(merge_project_file_path: str, blo
         id = get_block_id(element)
         if id in previously_existing_block_ids:
             elements_to_be_removed.append(get_element_with_id(previously_existing_blocks, id))
-            print("Removing outdated block:         id=\"{}\"".format(id))
 
     for element_to_be_removed in elements_to_be_removed:
         try:
             root.remove(element_to_be_removed)
+            print("Removing outdated block:         id=\"{}\"".format(get_block_id(element_to_be_removed)))
         except ValueError:
             pass
 
@@ -221,7 +232,7 @@ def merge_files(modules_folder: str, path_to_merge_file: str):
     modified_xml_string = xml_string
 
     # Load the existing JSON data from the target merge project file
-    json_file = replace_xml_data_in_v5blocks_file(path_to_merge_file, modified_xml_string)
+    json_file = replace_xml_data_in_file(path_to_merge_file, modified_xml_string)
 
     # Open the target merge project file in write mode
     merge_file = open(path_to_merge_file, 'w')
