@@ -2,7 +2,6 @@
 # Description:  A "simple" python script that allows users to merge together multiple programming block files (.v5blocks or .iqblocks) into one
 # Created by:   Caleb Carlson
 # Date:         7/4/2023
-# Terms of use: Just make sure to give me (Caleb Carlson) credit for this specific file if you use it (this file)
 
 
 import os
